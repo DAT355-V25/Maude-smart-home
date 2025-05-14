@@ -32,7 +32,7 @@ You can now run test cases, simulate rule application, and trace the behavior of
 red trace(5, < coldConfig >) .
 ```
 
-All test cases can be found in `smarthome-dn.maude`
+All test cases can be found in `smarthome-fn.maude`
 
 ## Notes
 
