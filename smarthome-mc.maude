@@ -1,0 +1,79 @@
+mod SMART-HOME-MC is
+	including SMART-HOME .
+	  including SMART-HOME-TEST .
+	  including MODEL-CHECKER .
+	
+	*** ===== CONFIGURATION STATE FOR MODEL CHECKING =====
+	*** Make smart home configurations compatible with the model checker
+	subsort Config < State .
+	
+	vars DL : DeviceList .
+	
+	*** ===== PROPOSITIONS FOR TEMP AND ACTUATOR STATUS =====
+	*** Logical properties we want to monitor in the system
+	
+	*** Heater is currently ON
+	op heaterOn : -> Prop .
+	eq < DL > |= heaterOn = isOn(heater1, DL) .
+	
+	*** Heater is currently OFF
+	op heaterOff : -> Prop .
+	eq < DL > |= heaterOff = not isOn(heater1, DL) .
+	
+	*** Temperature is below 20 (cold)
+	op tempLow : -> Prop .
+	eq < DL > |= tempLow = getValue(tempSensor1, DL) < 20 .
+	
+	*** Fan is currently ON
+	op fanOn : -> Prop .
+	eq < DL > |= fanOn = isOn(fan1, DL) .
+	
+	*** Fan is currently OFF
+	op fanOff : -> Prop .
+	eq < DL > |= fanOff = not isOn(fan1, DL) .
+	
+	*** Temperature is above 26 (hot)
+	op tempHigh : -> Prop .
+	eq < DL > |= tempHigh = getValue(tempSensor1, DL) > 26 .
+	
+	*** ===== TRANSITION RULE FOR MODEL CHECKER =====
+	*** Defines how the system evolves in one step:
+	*** - First apply the rule list
+	*** - Then apply environment effects based on actuator states
+	rl [step] : < DL > => < applyEnvironment(applyRuleList(ruleList, DL)) > .
+
+endm
+
+
+mod SMART-HOME-PROP is
+  including SMART-HOME-MC .
+
+  *** Every time it's cold and the heater is off, it must eventually turn on ***
+  op heaterResponse : -> Formula .
+  eq heaterResponse = [] (tempLow /\ heaterOff -> <> heaterOn) .
+
+  *** Every time it's hot and the fan is off, it must eventually turn on ***
+  op fanResponse : -> Formula .
+  eq fanResponse = [] (tempHigh /\ fanOff -> <> fanOn) .
+  
+  *** the heater eventually turns on ***
+  op eventuallyHeater : -> Formula .
+  eq eventuallyHeater = <> heaterOn .
+  
+  *** the fan eventually turns on ***
+  op eventuallyFan : -> Formula .
+  eq eventuallyFan = <> fanOn .
+  
+
+endm
+
+
+*** red modelCheck(< coldConfig >, heaterResponse) .
+*** red modelCheck(< hotConfig >, fanResponse) .
+
+*** red modelCheck(< coldConfig >, eventuallyHeater) .
+*** red modelCheck(< hotConfig >, eventuallyFan) .
+*** red trace(5, < coldConfig >) .
+
+
+

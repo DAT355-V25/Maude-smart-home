@@ -1,0 +1,454 @@
+mod SMART-HOME is
+    protecting INT .   *** For integer values and arithmetic
+    protecting BOOL .  *** For boolean logic and conditions
+    
+    *** ===== CORE SORT DEFINITIONS =====
+    sort Id Device Sensor Actuator DeviceList Cmp Graph Vis .
+    subsort Sensor Actuator < Device .  *** Sensors and actuators are devices
+    subsort Device < DeviceList .      *** Single devices can be treated as lists
+
+    *** ===== DEVICE DEFINITIONS =====
+    
+    op sensor : Id Int -> Sensor [ctor] .    *** Defines a sensor with id and integer value
+    op actuator : Id Bool -> Actuator [ctor] .    *** Defines an actuator with id and boolean state
+    ops tempSensor1 co2Sensor1 windowSensor1 heater1 fan1 window1 : -> Id [ctor] .    *** Predefined device identifiers
+
+    *** ===== COMPARISON OPERATORS =====
+    ops le ge : -> Cmp .  *** le = less-or-equal, ge = greater-or-equal
+
+    *** ===== GRAPH REPRESENTATION =====
+    *** For modeling device dependencies and cycle detection
+    op empty : -> Graph [ctor] .       *** Empty graph
+    op none : -> Vis [ctor] .          *** Empty visited set
+    op add : Id Id Graph -> Graph [ctor] .  *** Add edge between two nodes
+    op addV : Id Vis -> Vis [ctor] .   *** Add node to visited set
+    op inV : Id Vis -> Bool .         *** Check if node is visited
+    op dfs : Id Graph Vis -> Bool .   *** Depth-first search
+    op hasCycle : Graph -> Bool .     *** Cycle detection
+
+    *** ===== RULE REPRESENTATION =====
+    sort Rule RuleList .
+    op rule : Id Cmp Int Id Bool -> Rule [ctor] .	*** rule with sensor, comparison, threshold, actuator, state
+    op nilr : -> RuleList [ctor] .    *** Empty rule list
+    op _;_ : Rule RuleList -> RuleList [ctor] .  *** Rule list concatenation
+
+    *** ===== DEVICE COLLECTIONS =====
+    op empty : -> DeviceList [ctor] .  *** Empty device list
+    op __ : DeviceList DeviceList -> DeviceList [assoc comm id: empty ctor] .    *** Combines device lists
+
+    *** ===== VARIABLE DECLARATIONS =====
+    vars S A X Y Z : Id .
+    vars V T : Int .
+    vars B OldB : Bool .
+    vars DL : DeviceList .
+    var G : Graph .
+    vars R : Rule .
+    vars RL : RuleList .
+    var VS : Vis .
+    
+    *** ==== STATIC VALUES ====
+    op outdoorTemp : -> Int .
+	eq outdoorTemp = 16 .
+	
+    
+
+    *** ===== CORE OPERATIONS =====
+    *** Get current value of a sensor from device list
+    op getValue : Id DeviceList -> Int .
+    eq getValue(S, sensor(S, V) DL) = V .    *** Found matching sensor case
+    eq getValue(S, sensor(A, V) DL) = getValue(S, DL) [owise] .    *** Keep searching for sensor (owise = otherwise)
+    eq getValue(S, actuator(A, B) DL) = getValue(S, DL) [owise] .    *** Skip actuators while searching
+    eq getValue(S, empty) = 0 .    *** Default value if sensor not found
+
+    *** Set state of an actuator in device list
+    op setState : Id Bool DeviceList -> DeviceList .
+    eq setState(A, B, actuator(A, OldB) DL) = actuator(A, B) setState(A, B, DL) .    *** Update matching actuator
+    eq setState(A, B, actuator(S, OldB) DL) = actuator(S, OldB) setState(A, B, DL) [owise] .    *** Skip non-matching actuators
+    eq setState(A, B, sensor(S, V) DL) = sensor(S, V) setState(A, B, DL) .    *** Skip sensors
+    eq setState(A, B, empty) = empty .    *** Base case
+
+    *** ==== Apply environmental effects based on actuator states ====
+	op applyEnvironment : DeviceList -> DeviceList .
+	
+	*** Combined effect: heater ON and window open
+	eq applyEnvironment(sensor(tempSensor1, V) sensor(windowSensor1, 1) actuator(heater1, true) DL) =
+		sensor(tempSensor1, V + 1) applyEnvironment(sensor(windowSensor1, 1) actuator(heater1, true) DL) .
+
+	*** Combined effect: fan ON and window open
+	eq applyEnvironment(sensor(tempSensor1, V) sensor(windowSensor1, 1) actuator(fan1, true) DL) =
+		sensor(tempSensor1, V - 2) applyEnvironment(sensor(windowSensor1, 1) actuator(fan1, true) DL) .		
+	*** må legge til fan on og window open
+	
+	*** Combined effect: fan ON and window open
+	eq applyEnvironment(sensor(tempSensor1, V) sensor(windowSensor1, 1) actuator(fan1, true) DL) =
+	  if V > outdoorTemp
+	  then sensor(tempSensor1, V - 2) applyEnvironment(sensor(windowSensor1, 1) actuator(fan1, true) DL)
+	  else if V < outdoorTemp
+	       then sensor(tempSensor1, V) applyEnvironment(sensor(windowSensor1, 1) actuator(fan1, true) DL)
+	       else sensor(tempSensor1, V - 1) applyEnvironment(sensor(windowSensor1, 1) actuator(fan1, true) DL)
+	  fi fi .
+	
+	*** Heater only
+	eq applyEnvironment(sensor(tempSensor1, V) actuator(heater1, true) DL) =
+	  sensor(tempSensor1, V + 2) applyEnvironment(actuator(heater1, true) DL) .
+	
+	*** Fan only
+	eq applyEnvironment(sensor(tempSensor1, V) actuator(fan1, true) DL) =
+	  sensor(tempSensor1, V - 1) applyEnvironment(actuator(fan1, true) DL) .
+	
+	*** Window open only
+	eq applyEnvironment(sensor(tempSensor1, V) sensor(windowSensor1, 1) DL) =
+	  if V > outdoorTemp
+	  then sensor(tempSensor1, V - 1) applyEnvironment(sensor(windowSensor1, 1) DL)
+	  else if V < outdoorTemp
+	       then sensor(tempSensor1, V + 1) applyEnvironment(sensor(windowSensor1, 1) DL)
+	       else sensor(tempSensor1, V) applyEnvironment(sensor(windowSensor1, 1) DL)
+	  fi fi .
+	
+	*** Window open adjusts CO2 level
+	eq applyEnvironment(sensor(co2Sensor1, V) sensor(windowSensor1, 1) DL) =
+	  sensor(co2Sensor1, V - 25) applyEnvironment(sensor(windowSensor1, 1) DL) .
+	
+	*** Default case: keep sensor as is
+	eq applyEnvironment(sensor(S, V) DL) =
+	  sensor(S, V) applyEnvironment(DL) [owise] .
+	
+	*** Skip actuator if not matched
+	eq applyEnvironment(actuator(A, B) DL) =
+	  actuator(A, B) applyEnvironment(DL) [owise] .
+	
+	*** Empty list base case
+	eq applyEnvironment(empty) = empty .
+
+    
+    *** ===== SENSOR PRESENCE CHECK =====
+	op containsSensor : Id DeviceList -> Bool .
+	eq containsSensor(S, sensor(S, V) DL) = true .
+	eq containsSensor(S, sensor(X, V) DL) = containsSensor(S, DL) [owise] .
+	eq containsSensor(S, actuator(X, B) DL) = containsSensor(S, DL) [owise] .
+	eq containsSensor(S, empty) = false .
+	
+    *** ===== DEPENDENCY EFFECTS AND RULE EXECUTION =====
+    *** Apply a single rule to the device list.
+    *** A rule activates or deactivates an actuator if a sensor value meets the condition.
+    op applyRule : Rule DeviceList -> DeviceList .
+
+	eq applyRule(rule(S, le, T, A, B), DL) =
+  		if containsSensor(S, DL) and getValue(S, DL) <= T
+  		then setState(A, B, DL)
+  		else DL
+  		fi .
+
+	eq applyRule(rule(S, ge, T, A, B), DL) =
+  		if containsSensor(S, DL) and getValue(S, DL) >= T
+ 		then setState(A, B, DL)
+  		else DL
+  		fi .
+
+    *** ===== APPLY LIST OF RULES SEQUENTIALLY =====
+    op applyRuleList : RuleList DeviceList -> DeviceList .
+
+    eq applyRuleList(nilr, DL) = DL .  *** Base case: no rules left
+    eq applyRuleList(R ; RL, DL) =     *** Apply first rule, then rest
+      applyRuleList(RL, applyRule(R, DL)) .
+      
+	*** ===== RULE DEFINITIONS =====
+	*** The smart home rules that control the heater and fan based on temperature thresholds.
+	op ruleList : -> RuleList .
+	eq ruleList =
+	  	rule(tempSensor1, le, 18, heater1, true) ;   *** Turn ON heater if temperature is less than or equal 18
+	  	rule(tempSensor1, ge, 26, heater1, false) ;  *** Turn OFF heater if temperature is greater than or equal 26
+	  	rule(tempSensor1, ge, 26, fan1, true) ;      *** Turn ON fan if temperature is greater than or equal 26
+	  	rule(tempSensor1, le, 20, fan1, false) ;     *** Turn OFF fan if temperature is less than or equal 20
+	  	rule(co2Sensor1, ge, 1000, window1, true) ;  *** Open window if the CO2 level is greater than or equal 1000
+	  	rule(co2Sensor1, le, 700, window1, false) ;  *** Close window if the CO2 level is less than or equal 700
+	    nilr .
+	    
+	*** ==== SYNC SENSORS ====
+	op syncSensors : DeviceList -> DeviceList .
+
+	eq syncSensors(sensor(windowSensor1, V) actuator(window1, true) DL) =
+  		sensor(windowSensor1, 1) syncSensors(actuator(window1, true) DL) .
+
+	eq syncSensors(sensor(windowSensor1, V) actuator(window1, false) DL) =
+ 		 sensor(windowSensor1, 0) syncSensors(actuator(window1, false) DL) .
+
+	eq syncSensors(sensor(S, V) DL) = sensor(S, V) syncSensors(DL) [owise] .
+	eq syncSensors(actuator(A, B) DL) = actuator(A, B) syncSensors(DL) [owise] .
+	eq syncSensors(empty) = empty .
+	    
+    *** ===== GRAPH OPERATIONS FOR CYCLE DETECTION =====
+
+    *** Check if a node is in the visited set
+    eq inV(X, none) = false .
+    eq inV(X, addV(X, VS)) = true .
+    eq inV(X, addV(Y, VS)) = inV(X, VS) [owise] .
+
+    *** Retrieve all active neighbors (actuators) of a node
+    op neighbors : Id Graph -> DeviceList .
+    eq neighbors(X, empty) = empty .
+    eq neighbors(X, add(X, Y, G)) = actuator(Y, true) neighbors(X, G) .
+    eq neighbors(X, add(Z, Y, G)) = neighbors(X, G) [owise] .
+
+    *** Perform depth-first search from a given node
+    op dfs : Id Graph Vis -> Bool .
+    eq dfs(X, G, VS) =
+      if inV(X, VS)
+      then true                    *** Cycle detected
+      else dfsList(neighbors(X, G), G, addV(X, VS)) fi .
+
+    *** DFS helper: recursively check neighbors
+    op dfsList : DeviceList Graph Vis -> Bool .
+    eq dfsList(empty, G, VS) = false .
+    eq dfsList(actuator(Y, true) DL, G, VS) =
+      dfs(Y, G, VS) or dfsList(DL, G, VS) .
+
+    *** Cycle detection entry point
+    op hasCycle : Graph -> Bool .
+    eq hasCycle(empty) = false .  *** Empty graph has no cycles
+    eq hasCycle(add(X, Y, G)) = dfs(X, add(X, Y, G), none) or hasCycle(G) .
+
+    *** ===== ACTUATOR STATE CHECK =====
+
+    *** Check if an actuator is ON
+    op isOn : Id DeviceList -> Bool .
+    eq isOn(A, actuator(A, true) DL) = true .
+    eq isOn(A, actuator(A, false) DL) = false .
+    eq isOn(A, sensor(S, V) DL) = isOn(A, DL) .  *** Skip sensors
+    eq isOn(A, empty) = false .                 *** Default: not found => off
+    
+
+endm
+
+mod SMART-HOME-TEST is
+	  protecting SMART-HOME .	
+	*** ===== CONFIGURATIONS =====
+	*** Initial test states for the smart home with different temperature levels
+	
+	*** Cold temperature
+	op coldConfig : -> DeviceList .
+	eq coldConfig = sensor(tempSensor1, 16) actuator(heater1, false) actuator(fan1, false) .
+	
+	*** Hot temperature 
+	op hotConfig : -> DeviceList .
+	eq hotConfig = sensor(tempSensor1, 26) actuator(heater1, false) actuator(fan1, false) .
+	
+	*** Comfortable temperature — no action expected
+	op normalConfig : -> DeviceList .
+	eq normalConfig = sensor(tempSensor1, 22) actuator(heater1, false) actuator(fan1, false) .
+	
+	*** High CO2  
+	op highCO2Config : -> DeviceList .
+	eq highCO2Config =
+  		sensor(tempSensor1, 25)
+  		sensor(co2Sensor1, 1100)       
+  		sensor(windowSensor1, 0)    
+  		actuator(heater1, false)
+  		actuator(fan1, false)
+  		actuator(window1, false) .
+ 
+	*** High CO2 and low temp
+	op highCO2LowTempConfig : -> DeviceList .
+	eq highCO2LowTempConfig =
+  		sensor(tempSensor1, 18)
+  		sensor(co2Sensor1, 1200)       
+  		sensor(windowSensor1, 0)    
+  		actuator(heater1, false)
+  		actuator(fan1, false)
+  		actuator(window1, false) .
+ 	
+ 	*** Window open
+ 	op openWindowConfig : -> DeviceList .
+ 	eq openWindowConfig =
+ 		sensor(tempSensor1, 23)      
+  		sensor(windowSensor1, 1)    
+  		actuator(heater1, false)
+  		actuator(fan1, false)
+  		actuator(window1, true) .
+	
+	
+	*** ===== DEPENDENCY GRAPH TEST CASES =====
+	*** Used to test cycle detection logic in rule dependency graphs
+	
+	*** Circular dependency: sensor → heater → fan → sensor
+	op testGraphCycle : -> Graph .
+	eq testGraphCycle =
+		add(tempSensor1, heater1,
+	    add(heater1, fan1,
+	    add(fan1, tempSensor1, empty))) .
+	  
+	*** Acyclic dependency: tempSensor1 → heater → fan
+	op testGraphNoCycle : -> Graph .
+	eq testGraphNoCycle =
+	    add(tempSensor1, heater1,
+	    add(heater1, fan1, empty)) .
+	
+	*** ===== CONFIG AND TRACE SUPPORT =====
+	*** Wrapping a DeviceList in a Config for use with the model checker
+	
+	sort Config .
+	op <_> : DeviceList -> Config [ctor] .
+	
+	*** A list of configuration states used for tracing execution over time
+	sort List{Config} .
+	subsort Config < List{Config} .
+	
+	op nil : -> List{Config} [ctor] .
+	op _;_ : List{Config} List{Config} -> List{Config} [ctor assoc id: nil] .
+	
+	vars N : Nat .
+	var C : Config .
+	vars DL : DeviceList .
+	
+	*** Compute a trace of N steps from an initial configuration
+	op trace : Nat Config -> List{Config} .
+	eq trace(0, C) = C ; nil .                            *** Base case: stop tracing
+	eq trace(s(N), C) = C ; trace(N, step(C)) .           *** Recursive step trace
+	
+	
+	*** ===== TRANSITION RULE FOR MODEL CHECKER =====
+	*** Defines how the system evolves in one step:
+	*** - 1. Apply the rule list
+	*** - 2. Sync sensor readings with actuator state
+	*** - 3. Apply environment effects based on actuator states
+	rl [step] : < DL > => < applyEnvironment(syncSensors(applyRuleList(ruleList, DL))) > .
+	
+	*** Single transition step: apply rules, then apply environment effects
+	op step : Config -> Config .
+	eq step(< DL >) = < applyEnvironment(syncSensors(applyRuleList(ruleList, DL))) > .
+
+endm
+
+*** ============================================ ***
+*** TEST CASE 1: SENSOR VALUE & ACTUATOR STATE  ***
+*** ============================================ ***
+
+*** Get value of tempSensor1 when it's 22
+*** red getValue(tempSensor1, sensor(tempSensor1, 22) actuator(heater1, true)) .
+*** Expected: 22
+
+*** Update heater state to true
+*** red setState(heater1, true, actuator(heater1, false)) .
+*** Expected: actuator(heater1, true)
+
+*** Set state in a mixed list
+*** red setState(fan1, true, sensor(tempSensor1, 25) actuator(fan1, false)) .
+*** Expected: sensor(tempSensor1, 25) actuator(fan1, true)
+
+
+*** ============================================ ***
+*** TEST CASE 2: SINGLE RULE APPLICATION        ***
+*** ============================================ ***
+
+*** Apply rule to turn on heater when temp ≤ 20
+*** red applyRule(rule(tempSensor1, le, 20, heater1, true), coldConfig) .
+*** Expected: heater turns on
+
+*** Apply rule to turn on fan when temp ≥ 26
+*** red applyRule(rule(tempSensor1, ge, 26, fan1, true), hotConfig) .
+*** Expected: fan turns on
+
+*** Apply all rules to a normal state (22)
+*** red applyRuleList(ruleList, normalConfig) .
+*** Expected: no actuator turns on
+
+*** High CO2 triggers window to open
+*** red applyRuleList(ruleList, highCO2Config) .
+*** Expected: window1 set to true
+
+*** High CO2 + cold triggers heater + window open
+*** red applyRuleList(ruleList, highCO2LowTempConfig) .
+*** Expected: heater1 = true, window1 = true
+
+*** Open window alone does not trigger actuator changes
+*** red applyRuleList(ruleList, openWindowConfig) .
+*** Expected: no actuator state changes (window already open)
+
+
+*** ============================================ ***
+*** TEST CASE 3: ENVIRONMENTAL EFFECTS          ***
+*** ============================================ ***
+
+*** Heater on raises temp by 1
+*** red applyEnvironment(sensor(tempSensor1, 18) actuator(heater1, true)) .
+*** Expected: sensor(tempSensor1, 20)
+
+*** Fan on lowers temp by 1
+*** red applyEnvironment(sensor(tempSensor1, 28) actuator(fan1, true)) .
+*** Expected: sensor(tempSensor1, 27)
+
+*** Nothing on — no effect
+*** red applyEnvironment(sensor(tempSensor1, 22) actuator(heater1, false) actuator(fan1, false)) .
+*** Expected: no change = sensor(tempSensor1, 22) actuator(heater1, false) actuator(fan1, false)
+
+*** Open window cools room when outdoor is colder
+*** red applyEnvironment(sensor(tempSensor1, 21) sensor(windowSensor1, 1)) .
+*** Expected: sensor(tempSensor1, 20)
+
+*** Open window reduces CO2
+*** red applyEnvironment(sensor(co2Sensor1, 1000) sensor(windowSensor1, 1)) .
+*** Expected: sensor(co2Sensor1, 975)
+
+*** Closed window co2 and temp
+*** red applyEnvironment(sensor(tempSensor1, 24) sensor(co2Sensor1, 600) sensor(windowSensor1, 0)) .
+*** Expected: sensor(tempSensor1, 24) sensor(co2Sensor1, 600) 
+
+*** Window open, heater ON, check net effect
+*** red applyEnvironment(sensor(tempSensor1, 20) sensor(windowSensor1, 1) actuator(heater1, true)) actuator(window1, true) .
+*** Expected: tempSensor1 likely increases by 1 (heater +2, window -1) wrong as heat increased with 2
+
+*** Window open, fan ON, check net effect
+*** red applyEnvironment(sensor(tempSensor1, 27) sensor(windowSensor1, 1) actuator(fan1, true)) .
+*** Expected: tempSensor1 decreases by 2 (fan -1, window -1) 
+
+
+
+
+*** ============================================ ***
+*** TEST CASE 4: COMBINED RULE + ENVIRONMENT    ***
+*** ============================================ ***
+
+*** Cold config evolves: heater activates, temp rises
+*** red applyEnvironment(applyRuleList(ruleList, coldConfig)) .
+*** Expected: sensor(tempSensor1, 18) actuator(heater1, true)
+
+
+*** ============================================ ***
+*** TEST CASE 5: CYCLE DETECTION                ***
+*** ============================================ ***
+
+*** Graph with cycle: should detect
+*** red hasCycle(testGraphCycle) .
+*** Expected: true
+*** Because: tempSensor1 → heater1 → fan1 → tempSensor1 forms a loop
+
+*** Graph without cycle: should not detect
+*** red hasCycle(testGraphNoCycle) .
+*** Expected: false
+
+
+*** ============================================ ***
+*** TEST CASE 6: ACTUATOR ON/OFF STATUS         ***
+*** ============================================ ***
+
+*** Heater is ON
+*** red isOn(heater1, actuator(heater1, true) actuator(fan1, false)) .
+*** Expected: true
+
+*** Fan is OFF
+*** red isOn(fan1, actuator(heater1, true) actuator(fan1, false)) .
+*** Expected: false
+
+
+*** ============================================ ***
+*** TEST CASE 7: TRACE CONFIGURATION STATES     ***
+*** ============================================ ***
+
+*** Trace 5 steps from coldConfig
+*** red trace(5, < coldConfig >) .
+*** Expected: heater turns on and temperature rises each step
+
+*** Trace 5 steps from hotConfig
+*** red trace(5, < hotConfig >) .
+*** Expected: fan turns on and temperature decreases
+
