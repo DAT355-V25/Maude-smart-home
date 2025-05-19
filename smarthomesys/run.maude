@@ -1,0 +1,16 @@
+*** navigate to project directory
+cd "/Users/sanderodegaard/dat355/Maude-3/Maude-smart-home/smarthomesys" .
+
+*** Load Model Checker
+in "model-checker.maude" .
+
+*** Load Full Maude
+in "full-maude3.maude" .
+
+*** Load the functional and system module
+in "smarthome.maude" .
+
+*** Load the model checker module
+in "smarthome-mc.maude" .
+
+*** Now you can navigate to smarthome-mc and test out the predefined queries (or your own) in the maude terminal

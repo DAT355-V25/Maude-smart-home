@@ -1,0 +1,146 @@
+(omod FM-SMART-HOME is
+    protecting INT .
+    protecting NAT .
+    protecting STRING .
+    protecting BOOL .  
+	protecting CONFIGURATION .
+
+    
+*** === CLASS DEFINITIONS ===
+    class Sensor |
+		room : String,
+		value : Int,
+		type : String .
+	
+	class Actuator |
+		room : String,
+		isActive : Bool,
+		type : String .		
+
+	subsort String < Oid .
+	
+
+*** === STATIC VALUES ===
+  	op outdoorTemp : -> Int [ctor] .
+  	eq outdoorTemp = 16 .
+  	
+*** ===== VARIABLE DECLARATIONS =====
+	vars A : Oid .
+	vars R T : String .
+	var C : Configuration .
+  	
+*** === QUERY OPERATIONS ===
+*** brukes ikke til noe atm
+	op isOn : Configuration String String -> Bool .
+	op isOff : Configuration String String -> Bool .
+
+	
+	eq isOn(< A : Actuator | room : R, isActive : true, type : T > C, R, T) = true .
+	eq isOn(< A : Actuator | room : R, isActive : false, type : T > C, R, T) = false .
+	eq isOn(none, R, T) = false .
+	
+	eq isOff(< A : Actuator | room : R, isActive : false, type : T > C, R, T) = true .
+	eq isOff(< A : Actuator | room : R, isActive : true, type : T > C, R, T) = false .
+	eq isOff(none, R, T) = false .
+
+
+endom)
+
+(omod SM-SMART-HOME is
+	protecting FM-SMART-HOME .
+	
+
+	vars S A : Oid . 
+	vars V : Int .
+	vars R : String .
+
+*** ==== RULES ====
+	crl [heater-on] :
+	  	< S : Sensor | room : R, value : V, type : "temperature" >
+	    < A : Actuator | room : R, isActive : false, type : "heater" >
+	    =>
+	    < S : Sensor | room : R, value : V, type : "temperature" >
+	    < A : Actuator | room : R, isActive : true, type : "heater" >
+	    if V < 18 .
+	    
+	crl [heater-off] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "heater" >
+  		=>
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+	    < A : Actuator | room : R, isActive : false, type : "heater" >
+  		if V > 26 .
+  		
+	crl [fan-on] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+ 		< A : Actuator | room : R, isActive : false, type : "fan" >
+  		=>
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "fan" >
+  		if V > 26 .
+
+	crl [fan-off] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "fan" >
+  		=>
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+	    < A : Actuator | room : R, isActive : false, type : "fan" >
+	    if V < 22 .
+	 
+	crl [window-open] :
+  		< S : Sensor | room : R, value : V, type : "CO2" >
+ 		< A : Actuator | room : R, isActive : false, type : "window" >
+  		=>
+  		< S : Sensor | room : R, value : V, type : "CO2" >
+  		< A : Actuator | room : R, isActive : true, type : "window" >
+  		if V > 1000 .
+
+	crl [window-closed] :
+  		< S : Sensor | room : R, value : V, type : "CO2" >
+  		< A : Actuator | room : R, isActive : true, type : "window" >
+  		=>
+  		< S : Sensor | room : R, value : V, type : "CO2" >
+	    < A : Actuator | room : R, isActive : false, type : "window" >
+	    if V < 700 .
+	
+	crl [heater-effect] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "heater" >
+  		=>
+  		< S : Sensor | room : R, value : V + 2, type : "temperature" >
+	    < A : Actuator | room : R, isActive : true, type : "heater" > 
+	    if V < 28 .
+
+	crl [fan-effect] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "fan" >
+  		=>
+  		< S : Sensor | room : R, value : V - 1, type : "temperature" >
+	    < A : Actuator | room : R, isActive : true, type : "fan" > 
+	    if V > 21 .
+	    
+	crl [window-effect-temp1] :
+  		< S : Sensor | room : R, value : V, type : "temperature" >
+  		< A : Actuator | room : R, isActive : true, type : "window" >
+  		=>
+  		< S : Sensor | room : R, value : V - 1, type : "temperature" >
+	    < A : Actuator | room : R, isActive : true, type : "window" > 
+	    if V > outdoorTemp .
+	
+	crl [window-effect-temp2] :
+ 		< S : Sensor | room : R, value : V, type : "temperature" >
+		< A : Actuator | room : R, isActive : true, type : "window" >
+		=>
+		< S : Sensor | room : R, value : V + 1, type : "temperature" >
+		< A : Actuator | room : R, isActive : true, type : "window" >
+		if V < outdoorTemp .
+
+	crl [window-effect-co2] :
+  		< S : Sensor | room : R, value : V, type : "CO2" >
+  		< A : Actuator | room : R, isActive : true, type : "window" >
+  		=>
+  		< S : Sensor | room : R, value : V - 25, type : "CO2" >
+	    < A : Actuator | room : R, isActive : true, type : "window" >
+	    if V > 675 .
+
+endom)
