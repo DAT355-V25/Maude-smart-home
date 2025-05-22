@@ -26,23 +26,9 @@
   	
 *** ===== VARIABLE DECLARATIONS =====
 	vars A : Oid .
-	vars R T : String .
+	vars R : String .
 	var C : Configuration .
   	
-*** === QUERY OPERATIONS ===
-*** brukes ikke til noe atm
-	op isOn : Configuration String String -> Bool .
-	op isOff : Configuration String String -> Bool .
-
-	
-	eq isOn(< A : Actuator | room : R, isActive : true, type : T > C, R, T) = true .
-	eq isOn(< A : Actuator | room : R, isActive : false, type : T > C, R, T) = false .
-	eq isOn(none, R, T) = false .
-	
-	eq isOff(< A : Actuator | room : R, isActive : false, type : T > C, R, T) = true .
-	eq isOff(< A : Actuator | room : R, isActive : true, type : T > C, R, T) = false .
-	eq isOff(none, R, T) = false .
-
 
 endom)
 
@@ -58,12 +44,10 @@ endom)
 	crl [heater-on] :
 	  	< S : Sensor | room : R, value : V, type : "temperature" >
 	    < A : Actuator | room : R, isActive : false, type : "heater" >
-	    < A : Actuator | room : R, isActive : true, type : "fan" >
 	    =>
 	    < S : Sensor | room : R, value : V, type : "temperature" >
 	    < A : Actuator | room : R, isActive : true, type : "heater" >
-	    < A : Actuator | room : R, isActive : false, type : "fan" >
-	    if V < 18 .
+	    if V < 18 or V == 18 .
 	    
 	crl [heater-off] :
   		< S : Sensor | room : R, value : V, type : "temperature" >
@@ -71,17 +55,15 @@ endom)
   		=>
   		< S : Sensor | room : R, value : V, type : "temperature" >
 	    < A : Actuator | room : R, isActive : false, type : "heater" >
-  		if V > 26 .
+  		if V > 25 .
   		
 	crl [fan-on] :
   		< S : Sensor | room : R, value : V, type : "temperature" >
  		< A : Actuator | room : R, isActive : false, type : "fan" >
- 		< A : Actuator | room : R, isActive : true, type : "heater" >
   		=>
   		< S : Sensor | room : R, value : V, type : "temperature" >
   		< A : Actuator | room : R, isActive : true, type : "fan" >
-  		< A : Actuator | room : R, isActive : false, type : "heater" >
-  		if V > 26 .
+  		if V > 27 or V == 27 .
 
 	crl [fan-off] :
   		< S : Sensor | room : R, value : V, type : "temperature" >
@@ -113,7 +95,7 @@ endom)
   		=>
   		< S : Sensor | room : R, value : V + 2, type : "temperature" >
 	    < A : Actuator | room : R, isActive : true, type : "heater" > 
-	    if V < 28 .
+	    if V < 24 or V == 24 .
 
 	crl [fan-effect] :
   		< S : Sensor | room : R, value : V, type : "temperature" >
