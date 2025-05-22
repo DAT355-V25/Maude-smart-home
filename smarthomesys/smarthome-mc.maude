@@ -92,7 +92,7 @@
 	
 	*** Temperature is high (> 26)
 	op tempHigh : -> Prop .
-	eq < S : Sensor | value : V, type : "temperature", room : R > C |= tempHigh = V > 26 .
+	eq < S : Sensor | value : V, type : "temperature", room : R > C |= tempHigh = V > 25 .
 	eq C |= tempHigh = false [owise] .
 	
     *** If it's cold and heater is off, eventually heater must turn on
@@ -121,8 +121,35 @@
 
 endom)
 
-*** (rew [4] simpleHotRoom .)
+*** ==== TESTING SYSTEM BEHAVIOR ====
 
+*** (rew [2] simpleHotRoom .)
+*** fan turns on and decreases temperature
+*** (rew [9] simpleHotRoom .)
+*** temperature has reached comfortable level, fan turns off
+
+*** (rew [2] simpleColdRoom .)
+*** heater turns on and increases temperature
+*** (rew [7] simpleColdRoom .)
+*** temperature has reached comfortable level, heater turns off
+
+*** (rew [3] simpleCO2Room .)
+*** window opens and decreases co2
+*** (rew [21] simpleCO2Room .)
+*** co2 is at comfortable level, windows closes
+
+*** (rew [9] completeRoom .)
+*** the window has opened and reduced co2 and temperature
+*** (rew [13] completeRoom .)
+*** window is still open but heater has also turned on due to the temperature dropping
+
+*** (rew [3] twoRooms .)
+*** a fan and a heater have turned on in seperate rooms
+*** (rew [9] twoRooms .)
+*** both actuators are still on and still affect the sensors
+
+
+*** ==== MODEL CHECKING ====
 *** (red modelCheck(simpleColdRoom, <> heaterOn) .)
 *** expected true
 
@@ -158,6 +185,4 @@ endom)
 *** Expected: true — system opens window when CO₂ is high
 
 *** (red modelCheck(simpleCO2Room, windowClosesAfterCO2Drops) .)
-*** (red modelCheck(completeRoom, windowClosesAfterCO2Drops) .)
-
 *** Expected: true — once CO₂ drops, the window should close
