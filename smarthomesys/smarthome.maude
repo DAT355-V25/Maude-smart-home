@@ -58,9 +58,11 @@ endom)
 	crl [heater-on] :
 	  	< S : Sensor | room : R, value : V, type : "temperature" >
 	    < A : Actuator | room : R, isActive : false, type : "heater" >
+	    < A : Actuator | room : R, isActive : true, type : "fan" >
 	    =>
 	    < S : Sensor | room : R, value : V, type : "temperature" >
 	    < A : Actuator | room : R, isActive : true, type : "heater" >
+	    < A : Actuator | room : R, isActive : false, type : "fan" >
 	    if V < 18 .
 	    
 	crl [heater-off] :
@@ -74,9 +76,11 @@ endom)
 	crl [fan-on] :
   		< S : Sensor | room : R, value : V, type : "temperature" >
  		< A : Actuator | room : R, isActive : false, type : "fan" >
+ 		< A : Actuator | room : R, isActive : true, type : "heater" >
   		=>
   		< S : Sensor | room : R, value : V, type : "temperature" >
   		< A : Actuator | room : R, isActive : true, type : "fan" >
+  		< A : Actuator | room : R, isActive : false, type : "heater" >
   		if V > 26 .
 
 	crl [fan-off] :

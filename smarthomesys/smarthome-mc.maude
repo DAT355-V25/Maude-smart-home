@@ -102,7 +102,22 @@
   	*** If it's hot and fan is off, eventually fan must turn on
   	op fanResponse : -> Formula .
   	eq fanResponse = [] (tempHigh /\ fanOff -> <> fanOn) . 
-
+  	
+  	*** Heater and Fan should never be on at the same time
+  	op heaterAndFanNotOnSimultaneously : -> Formula .
+  	eq heaterAndFanNotOnSimultaneously = [] ~(heaterOn /\ fanOn) .
+  	
+  	*** Heater should not immediately turn off in the next step, unless the temperature is high (above 26°C)
+  	op noHeaterOscillation : -> Formula .
+	eq noHeaterOscillation = [] ((heaterOn /\ O (~ heaterOn)) -> tempHigh) .
+  	
+  	*** If CO₂ levels are high, the system must eventually open the window
+	op co2TriggersWindow : -> Formula .
+	eq co2TriggersWindow = [] (co2High -> <> windowOpen) .
+	
+	*** If CO₂ levels return to normal but the window is open, they should eventually close
+	op windowClosesAfterCO2Drops : -> Formula .
+	eq windowClosesAfterCO2Drops = [] (((~ co2High) /\ windowOpen) -> <> windowClosed) .
 
 endom)
 
@@ -131,3 +146,18 @@ endom)
 
 *** (red modelCheck(twoRooms, fanResponse /\ heaterResponse) .)
 *** Expected true 
+
+*** (red modelCheck(simpleColdRoom, heaterAndFanNotOnSimultaneously) .)
+*** Expected: true — fan and heater are initially off, and can't be on together
+
+*** (red modelCheck(simpleColdRoom, noHeaterOscillation) .)
+*** Expected: true — heater should not toggle off unless tempHigh
+
+*** (red modelCheck(simpleCO2Room, co2TriggersWindow) .)
+*** (red modelCheck(completeRoom, co2TriggersWindow) .)
+*** Expected: true — system opens window when CO₂ is high
+
+*** (red modelCheck(simpleCO2Room, windowClosesAfterCO2Drops) .)
+*** (red modelCheck(completeRoom, windowClosesAfterCO2Drops) .)
+
+*** Expected: true — once CO₂ drops, the window should close
