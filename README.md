@@ -34,7 +34,7 @@ cd "Your/Path/To/The/Folder" .
 
    If you did everything correct, the program should be running now.
 
-## 🧪 Example Usage
+## Example Usage
 
 - Simulate the system:
 
@@ -51,3 +51,4 @@ cd "Your/Path/To/The/Folder" .
 
 - Make sure all `.maude` files are in the same directory before running `run.maude`.
 - Examples for what you can verify in the program are located as comments in the bottom of `smarthome-mc.maude`.
+- We recommend that you use Maude version 3.1 or newer when running this project
