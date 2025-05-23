@@ -1,39 +1,53 @@
 # Smart Home System — Maude Specification
 
-This project models a smart home system using Maude. It supports devices like sensors and actuators, applies environment effects, and simulates automation rules. It is written using a **functional programming approach**, with support for **model checking**.
+This project models a smart home system using the Maude specification language. It defines sensors and actuators as object-oriented components and uses rewrite rules to simulate automation behavior and environmental feedback. The system is evaluated using Maude's built-in Linear Temporal Logic (LTL) model checker to verify correctness.
 
-## 📁 File Naming Convention
+## File Overview
 
-- `*-fn.maude`: Files using a **functional style**. These files define the static structure, behavior, and rules of the smart home system.
-- `*-mc.maude`: Files related to **model checking**. These are used to trace and simulate the system's execution over time.
-- `model-checker.maude`: Core module providing definitions and utilities for model checking (e.g., configuration tracing, transition logic). NB! This is not included in the repository and is expected to be available in the same folder as the provided code.
+- `smarthome.maude`: The main specification, including classes, rules, and device logic.
+- `smarthome-mc.maude`: Model checking module with LTL formulas and test scenarios.
+- `full-maude3.maude`: Full Maude system module.
+- `model-checker.maude`: Core LTL model checking logic and configuration.
+- `run.maude`: Script for automatically loading all necessary modules in sequence.
 
 ## How to Run
 
-To run the system **in the expected order**, follow these steps:
+1. Open the [Maude system](https://maude.cs.illinois.edu/) and edit the path in `run.maude` to where your folder is located:
 
-1. **Load the model checker core definitions**:
-   ```maude
-   load model-checker.maude
-   ```
+From:
 
-2. **Load the smart home system written in functional style**:
-   ```maude
-   load smarthome-fn.maude
-   ```
-
-3. **Load the model checking setup and test suite**:
-   ```maude
-   load smarthome-mc.maude
-   ```
-
-You can now run test cases, simulate rule application, and trace the behavior of the smart home system using commands like:
 ```maude
-red trace(5, < coldConfig >) .
+cd "/Users/sanderodegaard/dat355/Maude-3/Maude-smart-home/smarthomesys" .
 ```
 
-All test cases can be found in `smarthome-fn.maude`
+To:
+
+```maude
+cd "Your/Path/To/The/Folder" .
+```
+
+2. Load the run.maude file after saving by either commandline or in your preferred IDE.
+
+   ```maude
+   load run.maude
+   ```
+
+   If you did everything correct, the program should be running now.
+
+## 🧪 Example Usage
+
+- Simulate the system:
+
+  ```maude
+  rew [8] completeRoom .
+  ```
+
+- Run model checking on a safety property:
+  ```maude
+  red modelCheck(simpleColdRoom, heaterAndFanNotOnSimultaneously) .
+  ```
 
 ## Notes
 
-- This setup assumes you are using the [Maude system](https://maude.cs.illinois.edu/) with all files located in the same directory.
+- Make sure all `.maude` files are in the same directory before running `run.maude`.
+- Examples for what you can verify in the program are located as comments in the bottom of `smarthome-mc.maude`.
